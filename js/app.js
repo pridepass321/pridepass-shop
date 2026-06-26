@@ -68,31 +68,30 @@ function applyHuePreset(hue, saturation) {
     $('hue-value').textContent = `${hue}°`;
     $('saturation-value').textContent = `${saturation}%`;
     updateHuePresetActive();
-    schedulePreviewUpdate();
+    syncPreviewHueFilter();
 }
 
-let previewRaf = null;
 let previewToken = 0;
 
-function schedulePreviewUpdate() {
-    if (previewRaf) cancelAnimationFrame(previewRaf);
-    previewRaf = requestAnimationFrame(() => {
-        previewRaf = null;
-        updatePreview();
-    });
+function syncPreviewHueFilter() {
+    if (state.previewSide !== 'front') {
+        applyPreviewHueFilter(0, 100, false);
+        return;
+    }
+    applyPreviewHueFilter(state.hue, state.saturation, true);
 }
 
 function onHueChange(value) {
     state.hue = Number(value) || 0;
     $('hue-value').textContent = `${state.hue}°`;
     updateHuePresetActive();
-    schedulePreviewUpdate();
+    syncPreviewHueFilter();
 }
 
 function onSaturationChange(value) {
     state.saturation = Number(value) || 100;
     $('saturation-value').textContent = `${state.saturation}%`;
-    schedulePreviewUpdate();
+    syncPreviewHueFilter();
 }
 
 function buildIdentitySelect() {
@@ -184,7 +183,6 @@ function focusLivePreview(fromQuickJump = false) {
 
 function selectTheme(id, options = {}) {
     const { fromQuickJump = false } = options;
-    if (typeof clearHueCache === 'function') clearHueCache();
     state.identityId = id;
     $('input-identity').value = id;
     updateFieldVisibility();
@@ -499,6 +497,7 @@ function switchPreviewSide(side) {
     $('btn-back').classList.toggle('nav-active', side === 'back');
     $('btn-front').classList.toggle('dim-tab', side !== 'front');
     $('btn-back').classList.toggle('dim-tab', side !== 'back');
+    syncPreviewHueFilter();
     updatePreview();
 }
 

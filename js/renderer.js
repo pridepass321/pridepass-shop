@@ -1,8 +1,36 @@
 const imageCache = new Map();
-const shiftedCache = new Map();
-const SHIFTED_CACHE_MAX = 48;
-
 const PREVIEW_SCALE = 0.5;
+
+function buildHueFilter(hue = 0, saturation = 100) {
+    const h = Number(hue) || 0;
+    const s = Math.max(50, Math.min(150, Number(saturation) || 100));
+    if (h === 0 && s === 100) return 'none';
+    return `hue-rotate(${h}deg) saturate(${s / 100})`;
+}
+
+function drawBackgroundWithHue(ctx, img, width, height, hue, saturation) {
+    const filter = buildHueFilter(hue, saturation);
+    if (filter === 'none') {
+        ctx.drawImage(img, 0, 0, width, height);
+        return;
+    }
+    ctx.save();
+    ctx.filter = filter;
+    ctx.drawImage(img, 0, 0, width, height);
+    ctx.restore();
+}
+
+/** Instant live preview — CSS filter on the card frame (no canvas redraw). */
+function applyPreviewHueFilter(hue = 0, saturation = 100, enabled = true) {
+    const frame = document.querySelector('.preview-hero .card-frame');
+    if (!frame) return;
+    if (!enabled) {
+        frame.style.filter = 'none';
+        return;
+    }
+    const filter = buildHueFilter(hue, saturation);
+    frame.style.filter = filter === 'none' ? 'none' : filter;
+}
 
 function loadImage(src) {
     if (imageCache.has(src)) return imageCache.get(src);
@@ -92,104 +120,6 @@ function drawFieldText(ctx, text, box, color = '#f8fafc') {
     ctx.shadowBlur = 0;
 }
 
-/** PIL-compatible HSV: H and S on 0–255, V = max(R,G,B). */
-function rgbToHsv255(r, g, b) {
-    r /= 255;
-    g /= 255;
-    b /= 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const d = max - min;
-    let hh = 0;
-    const vv = max * 255;
-    const ss = max === 0 ? 0 : ((max - min) / max) * 255;
-    if (d !== 0) {
-        if (max === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        else if (max === g) hh = ((b - r) / d + 2) / 6;
-        else hh = ((r - g) / d + 4) / 6;
-        hh *= 255;
-    }
-    return [hh, ss, vv];
-}
-
-function hsv255ToRgb(h, s, v) {
-    h = ((h % 255) + 255) % 255;
-    s = Math.max(0, Math.min(255, s));
-    v = Math.max(0, Math.min(255, v));
-    if (s === 0) {
-        const c = Math.round(v);
-        return [c, c, c];
-    }
-    const sector = (h / 255) * 6;
-    const i = Math.floor(sector);
-    const f = sector - i;
-    const p = v * (1 - s / 255);
-    const q = v * (1 - (s / 255) * f);
-    const t = v * (1 - (s / 255) * (1 - f));
-    let r, g, b;
-    switch (i % 6) {
-        case 0: r = v; g = t; b = p; break;
-        case 1: r = q; g = v; b = p; break;
-        case 2: r = p; g = v; b = t; break;
-        case 3: r = p; g = q; b = v; break;
-        case 4: r = t; g = p; b = v; break;
-        default: r = v; g = p; b = q; break;
-    }
-    return [Math.round(r), Math.round(g), Math.round(b)];
-}
-
-function applyHueSaturationPixels(imageData, hue, saturation) {
-    hue = Number(hue) || 0;
-    saturation = Number(saturation) || 100;
-    const data = imageData.data;
-    if (hue === 0 && saturation === 100) return imageData;
-
-    const hueShift = (hue / 360) * 255;
-    const satMult = saturation / 100;
-
-    for (let i = 0; i < data.length; i += 4) {
-        const a = data[i + 3];
-        if (a === 0) continue;
-        const [hh, ss, vv] = rgbToHsv255(data[i], data[i + 1], data[i + 2]);
-        const nh = (hh + hueShift) % 255;
-        const ns = Math.max(0, Math.min(255, ss * satMult));
-        const rgb = hsv255ToRgb(nh, ns, vv);
-        data[i] = rgb[0];
-        data[i + 1] = rgb[1];
-        data[i + 2] = rgb[2];
-    }
-    return imageData;
-}
-
-function getShiftedBackground(sourceImg, hue, saturation, scale = 1) {
-    const src = sourceImg.currentSrc || sourceImg.src || '';
-    const cacheKey = `${src}@${scale}@${hue}@${saturation}`;
-    if (shiftedCache.has(cacheKey)) return shiftedCache.get(cacheKey);
-
-    const sw = sourceImg.naturalWidth || sourceImg.width;
-    const sh = sourceImg.naturalHeight || sourceImg.height;
-    const w = Math.max(1, Math.round(sw * scale));
-    const h = Math.max(1, Math.round(sh * scale));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(sourceImg, 0, 0, w, h);
-
-    if (hue !== 0 || saturation !== 100) {
-        const imageData = ctx.getImageData(0, 0, w, h);
-        ctx.putImageData(applyHueSaturationPixels(imageData, hue, saturation), 0, 0);
-    }
-
-    if (shiftedCache.size >= SHIFTED_CACHE_MAX) {
-        const first = shiftedCache.keys().next().value;
-        shiftedCache.delete(first);
-    }
-    shiftedCache.set(cacheKey, canvas);
-    return canvas;
-}
-
 function buildLayoutForIdentity(identityId, width, height) {
     const photoLayout = getPhotoLayout(identityId);
     const layout = {
@@ -211,7 +141,8 @@ async function renderCardFront(options) {
         hue = 0,
         saturation = 100,
         previewScale = 1,
-        overlayText = true
+        overlayText = true,
+        applyHue = true
     } = options;
 
     const identity = IDENTITY_BY_ID[identityId];
@@ -230,8 +161,9 @@ async function renderCardFront(options) {
     const ctx = canvas.getContext('2d');
     const resolved = buildLayoutForIdentity(identityId, canvasW, canvasH);
 
-    const shifted = getShiftedBackground(bg, hue, saturation, scale);
-    ctx.drawImage(shifted, 0, 0, canvasW, canvasH);
+    const renderHue = applyHue ? hue : 0;
+    const renderSat = applyHue ? saturation : 100;
+    drawBackgroundWithHue(ctx, bg, canvasW, canvasH, renderHue, renderSat);
 
     if (photo) drawCircularPhoto(ctx, photo, resolved);
 
@@ -382,7 +314,8 @@ async function renderPreview(canvasEl, side, options) {
         rendered = await renderCardFront({
             ...options,
             previewScale: options.previewScale ?? PREVIEW_SCALE,
-            overlayText: false
+            overlayText: false,
+            applyHue: false
         });
     }
 
@@ -391,6 +324,13 @@ async function renderPreview(canvasEl, side, options) {
     canvasEl.height = rendered.height;
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
     ctx.drawImage(rendered, 0, 0);
+
+    if (side === 'front') {
+        applyPreviewHueFilter(options.hue, options.saturation, true);
+    } else {
+        applyPreviewHueFilter(0, 100, false);
+    }
+
     return rendered;
 }
 
@@ -447,6 +387,3 @@ async function loadPhotoFromDataUrl(dataUrl) {
     return loadImage(dataUrl);
 }
 
-function clearHueCache() {
-    shiftedCache.clear();
-}
