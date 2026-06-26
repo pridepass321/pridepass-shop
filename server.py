@@ -193,8 +193,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(200, {"status": "paid", "orderId": order_id, "alreadyCaptured": True})
                 return
 
-            sys.path.insert(0, str(ROOT / "scripts"))
-            from paypal_checkout import capture_paypal_order
+            from scripts.paypal_checkout import capture_paypal_order
             result = capture_paypal_order(paypal_order_id, order_id)
 
             order_data["status"] = "paid"
