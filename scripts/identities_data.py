@@ -5,8 +5,8 @@ CARD_LAYOUT = {
     "height": 971,
     "photo": {"cx": 0.791, "cy": 0.467, "r": 0.14},
     "name": {"x": 0.408, "y": 0.535, "maxWidth": 0.165, "fontSize": 0.036},
-    "field2": {"x": 0.355, "y": 0.668, "maxWidth": 0.22, "fontSize": 0.032},
-    "pronouns": {"x": 0.355, "y": 0.598, "fontSize": 0.018},
+    "field2": {"x": 0.355, "y": 0.702, "maxWidth": 0.22, "fontSize": 0.032},
+    "pronouns": {"x": 0.355, "y": 0.598, "fontSize": 0.018, "enabled": False},
 }
 
 PRONOUNS = [

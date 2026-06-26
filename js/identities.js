@@ -15,14 +15,15 @@ const CARD_LAYOUT = {
     },
     "field2": {
         "x": 0.355,
-        "y": 0.668,
+        "y": 0.702,
         "maxWidth": 0.22,
         "fontSize": 0.032
     },
     "pronouns": {
         "x": 0.355,
         "y": 0.598,
-        "fontSize": 0.018
+        "fontSize": 0.018,
+        "enabled": false
     }
 };
 

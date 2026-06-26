@@ -152,7 +152,7 @@ async function renderCardFront(options) {
     const sinceValue = memberSince || communitySince || memberNumber;
     drawFieldText(ctx, sinceValue, resolved.field2);
 
-    if (pronouns && pronouns !== 'name only') {
+    if (CARD_LAYOUT.pronouns?.enabled !== false && pronouns && pronouns !== 'name only') {
         ctx.font = `500 ${resolved.pronouns.fontSize}px Inter, system-ui, sans-serif`;
         ctx.fillStyle = 'rgba(248,250,252,0.85)';
         ctx.textAlign = 'left';
