@@ -8,7 +8,7 @@ const HUE_PRESETS = [
 ];
 
 let state = {
-    identityId: 'omnisexual',
+    identityId: 'pride',
     name: 'Alex Rivera',
     memberNumber: 'LGB-2026-0847',
     communitySince: '2026',
@@ -108,7 +108,9 @@ function buildIdentitySelect() {
     select.value = state.identityId;
 }
 
-let galleryFilter = 'all';
+let galleryFilter = 'Core';
+
+const GALLERY_CAT_LABEL = { Romantic: 'Romance', Sexuality: 'Sexuality', Gender: 'Gender', Core: 'Core' };
 
 function buildCardGallery() {
     const gallery = $('card-gallery');
@@ -120,7 +122,7 @@ function buildCardGallery() {
 
     gallery.innerHTML = filtered.map(identity => {
         const active = state.identityId === identity.id ? ' active' : '';
-        const cat = identity.category !== 'Core' ? identity.category : '';
+        const cat = identity.category !== 'Core' ? (GALLERY_CAT_LABEL[identity.category] || identity.category) : '';
         return `
             <button type="button" onclick="selectTheme('${identity.id}')"
                 class="gallery-card${active}" data-id="${identity.id}" title="${identity.label}">
