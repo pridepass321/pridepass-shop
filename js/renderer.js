@@ -88,11 +88,49 @@ function drawFieldText(ctx, text, box, color = '#f8fafc') {
     ctx.shadowBlur = 0;
 }
 
-function buildHueFilter(hue = 0, saturation = 100) {
-    const h = Number(hue) || 0;
-    const s = Math.max(50, Math.min(150, Number(saturation) || 100));
-    if (h === 0 && s === 100) return 'none';
-    return `hue-rotate(${h}deg) saturate(${s / 100})`;
+function rgbToHsv255(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const d = max - min;
+    let hh = 0;
+    const ss = max === 0 ? 0 : (d / max) * 255;
+    const vv = max * 255;
+    if (d !== 0) {
+        if (max === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) hh = ((b - r) / d + 2) / 6;
+        else hh = ((r - g) / d + 4) / 6;
+        hh *= 255;
+    }
+    return [hh, ss, vv];
+}
+
+function hsv255ToRgb(h, s, v) {
+    h = ((h % 255) + 255) % 255;
+    s = Math.max(0, Math.min(255, s));
+    v = Math.max(0, Math.min(255, v));
+    if (s === 0) {
+        const c = Math.round(v);
+        return [c, c, c];
+    }
+    const sector = (h / 255) * 6;
+    const i = Math.floor(sector);
+    const f = sector - i;
+    const p = v * (1 - s / 255);
+    const q = v * (1 - (s / 255) * f);
+    const t = v * (1 - (s / 255) * (1 - f));
+    let r, g, b;
+    switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q; break;
+    }
+    return [Math.round(r), Math.round(g), Math.round(b)];
 }
 
 function applyHueSaturationCanvas(sourceImg, hue = 0, saturation = 100) {
@@ -103,19 +141,29 @@ function applyHueSaturationCanvas(sourceImg, hue = 0, saturation = 100) {
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    ctx.drawImage(sourceImg, 0, 0);
-    const alphaData = ctx.getImageData(0, 0, w, h);
+    hue = Number(hue) || 0;
+    saturation = Number(saturation) || 100;
 
-    ctx.clearRect(0, 0, w, h);
-    ctx.filter = buildHueFilter(hue, saturation);
     ctx.drawImage(sourceImg, 0, 0);
-    ctx.filter = 'none';
+    if (hue === 0 && saturation === 100) return canvas;
 
-    const rgbData = ctx.getImageData(0, 0, w, h);
-    for (let i = 0; i < rgbData.data.length; i += 4) {
-        rgbData.data[i + 3] = alphaData.data[i + 3];
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+    const hueShift = (hue / 360) * 255;
+    const satMult = saturation / 100;
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
+        const [hh, ss, vv] = rgbToHsv255(data[i], data[i + 1], data[i + 2]);
+        const nh = (hh + hueShift) % 255;
+        const ns = Math.max(0, Math.min(255, ss * satMult));
+        const rgb = hsv255ToRgb(nh, ns, vv);
+        data[i] = rgb[0];
+        data[i + 1] = rgb[1];
+        data[i + 2] = rgb[2];
     }
-    ctx.putImageData(rgbData, 0, 0);
+
+    ctx.putImageData(imageData, 0, 0);
     return canvas;
 }
 

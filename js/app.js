@@ -154,7 +154,25 @@ function scrollToSelectedCard() {
     }
 }
 
-function selectTheme(id) {
+function focusLivePreview(fromQuickJump = false) {
+    const section = document.querySelector('.preview-hero');
+    if (!section) return;
+
+    const rect = section.getBoundingClientRect();
+    const previewVisible = rect.top >= 64 && rect.bottom <= window.innerHeight + 40;
+    if (fromQuickJump || !previewVisible) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    const frame = section.querySelector('.card-frame');
+    if (!frame) return;
+    frame.classList.remove('preview-pulse');
+    void frame.offsetWidth;
+    frame.classList.add('preview-pulse');
+}
+
+function selectTheme(id, options = {}) {
+    const { fromQuickJump = false } = options;
     state.identityId = id;
     $('input-identity').value = id;
     updateFieldVisibility();
@@ -176,6 +194,7 @@ function selectTheme(id) {
     updatePreviewLabel();
     updateMeaning();
     updatePreview();
+    focusLivePreview(fromQuickJump);
 }
 
 function updateFieldVisibility() {
@@ -725,7 +744,7 @@ function bindEvents() {
     $('input-hue').addEventListener('input', e => onHueChange(e.target.value));
     $('input-saturation').addEventListener('input', e => onSaturationChange(e.target.value));
     $('input-identity').addEventListener('change', e => {
-        selectTheme(e.target.value);
+        selectTheme(e.target.value, { fromQuickJump: true });
     });
     $('input-email')?.addEventListener('input', e => { state.customerEmail = e.target.value; });
 }

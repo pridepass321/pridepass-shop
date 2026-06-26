@@ -361,6 +361,16 @@
                 0 30px 60px -12px rgba(0,0,0,0.85);
         }
 
+        @keyframes preview-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 80px rgba(139,92,246,0.22), 0 30px 60px -12px rgba(0,0,0,0.85); }
+            35% { transform: scale(1.02); box-shadow: 0 0 0 1px rgba(167,139,250,0.35), 0 0 100px rgba(167,139,250,0.45), 0 30px 60px -12px rgba(0,0,0,0.85); }
+            100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 80px rgba(139,92,246,0.22), 0 30px 60px -12px rgba(0,0,0,0.85); }
+        }
+
+        .preview-hero .card-frame.preview-pulse {
+            animation: preview-pulse 0.55s ease-out;
+        }
+
         .checkout-panel {
             max-width: 900px;
             margin: 0 auto;
@@ -778,7 +788,7 @@
                                             <p class="photo-spec mt-0.5">Optional • Square JPG or PNG • <strong>600×600 px min @ 300 DPI</strong> (900×900 ideal)</p>
                                         </div>
                                     </div>
-                                    <p class="text-xs text-slate-500 mb-3">Shows live in your preview, centred in the emblem circle on your card front.</p>
+                                    <p class="text-xs text-slate-500 mb-3">Shows live in your preview, centred in the photo circle on your card front.</p>
                                     <div class="flex items-center gap-4 flex-wrap">
                                         <div class="upload-zone flex-1 min-w-[220px] rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('photo-input').click()">
                                             <i class="fa-solid fa-camera text-2xl text-violet-400/70"></i>
