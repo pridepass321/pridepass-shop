@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.env.local
+orders/
+output/
+*.pdf
+.DS_Store
+Thumbs.db
+node_modules/
+.venv/
+venv/

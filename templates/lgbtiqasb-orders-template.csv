@@ -1,0 +1,5 @@
+"order_id","name","identity","pronouns","member_number","community_since","hue","saturation","photo","notes"
+"Optional","REQUIRED","REQUIRED — see Valid Identities","Optional","Core cards only","Identity cards only","0-360","50-150","Photo filename","Not printed"
+"ORD-001","Alex Rivera","Omnisexual","they/them","","2024","0","100","alex.jpg",""
+"ORD-002","Sam Chen","Demigirl","she/they","","2025","45","110","sam.png",""
+"ORD-003","Jordan Lee","Pride","he/him","LGB-2026-0001","","0","100","",""

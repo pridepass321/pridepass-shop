@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PridePass • Premium Community Access Cards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
+
+        :root {
+            --neon-violet: #8b5cf6;
+            --neon-fuchsia: #d946ef;
+            --neon-cyan: #22d3ee;
+            --neon-rose: #fb7185;
+            --card-black: #050508;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--card-black);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient holographic background */
+        .page-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 20%, rgba(139,92,246,0.15), transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 10%, rgba(217,70,239,0.12), transparent 45%),
+                radial-gradient(ellipse 70% 50% at 50% 100%, rgba(34,211,238,0.08), transparent 50%),
+                linear-gradient(180deg, #030305 0%, #0a0a12 40%, #050508 100%);
+        }
+
+        .page-bg::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse 90% 80% at 50% 30%, black, transparent);
+        }
+
+        .wave-glow {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            z-index: 0;
+            pointer-events: none;
+            background: linear-gradient(90deg,
+                transparent,
+                rgba(251,113,133,0.06) 20%,
+                rgba(139,92,246,0.1) 50%,
+                rgba(34,211,238,0.08) 80%,
+                transparent);
+            filter: blur(40px);
+        }
+
+        .content-wrap { position: relative; z-index: 1; }
+
+        /* Iridescent border panels — matches card chrome */
+        .holo-panel {
+            position: relative;
+            background: linear-gradient(145deg, rgba(12,12,20,0.95), rgba(6,6,10,0.98));
+            border-radius: 24px;
+            padding: 1px;
+            overflow: hidden;
+        }
+
+        .holo-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 24px;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                rgba(251,113,133,0.5),
+                rgba(139,92,246,0.6),
+                rgba(34,211,238,0.5),
+                rgba(217,70,239,0.5),
+                rgba(251,113,133,0.4));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .holo-panel-inner {
+            background: linear-gradient(160deg, rgba(10,10,16,0.98) 0%, rgba(5,5,8,0.99) 100%);
+            border-radius: 23px;
+            padding: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .holo-panel-inner { padding: 2rem; }
+        }
+
+        /* Gradient title like card headers */
+        .title-gradient {
+            background: linear-gradient(90deg, #f472b6, #c084fc, #60a5fa, #34d399, #fbbf24, #f472b6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 8s linear infinite;
+        }
+
+        @keyframes shimmer {
+            to { background-position: 200% center; }
+        }
+
+        .subtitle-metallic {
+            background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Card preview frame */
+        .card-frame {
+            position: relative;
+            padding: 14px;
+            border-radius: 28px;
+            background: linear-gradient(145deg, #0c0c14, #060608);
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.06),
+                0 0 60px rgba(139,92,246,0.15),
+                0 25px 50px -12px rgba(0,0,0,0.8);
+        }
+
+        .card-frame::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 29px;
+            background: linear-gradient(135deg, #fb7185, #a78bfa, #22d3ee, #e879f9);
+            z-index: -1;
+            opacity: 0.45;
+        }
+
+        .card-frame canvas {
+            display: block;
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.3);
+        }
+
+        /* Theme thumbnails */
+        .theme-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.5);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .theme-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: rgba(167,139,250,0.4);
+            box-shadow: 0 12px 40px rgba(139,92,246,0.2);
+        }
+
+        .theme-card-active {
+            border-color: rgba(167,139,250,0.7) !important;
+            box-shadow: 0 0 24px rgba(139,92,246,0.35), inset 0 0 20px rgba(139,92,246,0.08);
+        }
+
+        .theme-card-label {
+            background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.9));
+            color: #cbd5e1;
+        }
+
+        .identity-chip {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #94a3b8;
+        }
+
+        .identity-chip:hover {
+            background: rgba(139,92,246,0.25);
+            border-color: rgba(167,139,250,0.5);
+            color: #f1f5f9;
+        }
+
+        /* Form controls — card field style */
+        .form-input {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f1f5f9;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(167,139,250,0.6);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.2), 0 0 20px rgba(139,92,246,0.1);
+        }
+
+        .form-input option, .form-input optgroup {
+            background: #0a0a12;
+            color: #e2e8f0;
+        }
+
+        /* Nav tabs */
+        .nav-pill {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .nav-active {
+            background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+            color: white !important;
+            box-shadow: 0 0 20px rgba(124,58,237,0.4);
+        }
+
+        .dim-tab { color: #64748b !important; }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed, #c026d3);
+            box-shadow: 0 4px 24px rgba(124,58,237,0.35);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 32px rgba(124,58,237,0.5);
+        }
+
+        .btn-emerald {
+            background: linear-gradient(135deg, #059669, #10b981);
+            box-shadow: 0 4px 24px rgba(16,185,129,0.3);
+        }
+
+        .btn-ghost {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(167,139,250,0.4);
+        }
+
+        /* Hue controls */
+        .hue-preset {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+        }
+
+        .hue-preset:hover, .hue-preset-active {
+            background: rgba(139,92,246,0.3);
+            border-color: rgba(167,139,250,0.6);
+            color: #f8fafc;
+            box-shadow: 0 0 16px rgba(139,92,246,0.25);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7, #ec4899);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 0 12px rgba(255,255,255,0.5);
+            cursor: pointer;
+        }
+
+        /* Badge */
+        .badge-live {
+            background: rgba(16,185,129,0.15);
+            border: 1px solid rgba(52,211,153,0.3);
+            color: #34d399;
+        }
+
+        .badge-live::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #34d399;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Batch log colours */
+        .log-success { color: #34d399; }
+        .log-error { color: #fb7185; }
+        .log-warn { color: #fbbf24; }
+        .log-muted { color: #64748b; }
+
+        /* Header */
+        .site-header {
+            background: rgba(5,5,8,0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .logo-gem {
+            background: linear-gradient(135deg, #f472b6, #a78bfa, #22d3ee);
+            box-shadow: 0 0 24px rgba(167,139,250,0.4);
+        }
+
+        .upload-zone {
+            border: 1px dashed rgba(167,139,250,0.35);
+            background: rgba(0,0,0,0.4);
+            transition: all 0.2s;
+        }
+
+        .upload-zone:hover {
+            border-color: rgba(167,139,250,0.6);
+            background: rgba(139,92,246,0.08);
+        }
+
+        .section-tag {
+            background: rgba(139,92,246,0.12);
+            border: 1px solid rgba(167,139,250,0.25);
+            color: #c4b5fd;
+            letter-spacing: 0.15em;
+        }
+
+        /* Live preview — hero placement */
+        .preview-hero {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .preview-hero .card-frame {
+            max-width: 100%;
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(16,185,129,0.12);
+            border: 1px solid rgba(52,211,153,0.35);
+            color: #34d399;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #34d399;
+            animation: pulse 2s infinite;
+        }
+
+        /* Card gallery — bottom scroll strip */
+        .gallery-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .gallery-filter {
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .gallery-filter:hover {
+            border-color: rgba(167,139,250,0.4);
+            color: #e2e8f0;
+        }
+
+        .gallery-filter.active {
+            background: linear-gradient(135deg, rgba(124,58,237,0.4), rgba(192,38,211,0.3));
+            border-color: rgba(167,139,250,0.6);
+            color: #f8fafc;
+            box-shadow: 0 0 16px rgba(139,92,246,0.2);
+        }
+
+        .card-gallery-wrap {
+            position: relative;
+        }
+
+        .card-gallery-wrap::before,
+        .card-gallery-wrap::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 48px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .card-gallery-wrap::before {
+            left: 0;
+            background: linear-gradient(90deg, rgba(5,5,8,0.95), transparent);
+        }
+
+        .card-gallery-wrap::after {
+            right: 0;
+            background: linear-gradient(270deg, rgba(5,5,8,0.95), transparent);
+        }
+
+        .card-gallery {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 8px 4px 16px;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(139,92,246,0.5) transparent;
+        }
+
+        .card-gallery::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .card-gallery::-webkit-scrollbar-thumb {
+            background: rgba(139,92,246,0.45);
+            border-radius: 999px;
+        }
+
+        .gallery-card {
+            flex: 0 0 auto;
+            width: 148px;
+            scroll-snap-align: start;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .gallery-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(167,139,250,0.45);
+            box-shadow: 0 12px 32px rgba(139,92,246,0.2);
+        }
+
+        .gallery-card.active {
+            border-color: rgba(167,139,250,0.85);
+            box-shadow: 0 0 24px rgba(139,92,246,0.35), inset 0 0 20px rgba(139,92,246,0.08);
+            transform: scale(1.04);
+        }
+
+        .gallery-card img {
+            width: 100%;
+            aspect-ratio: 85.6 / 53.98;
+            object-fit: cover;
+            display: block;
+        }
+
+        .gallery-card-label {
+            padding: 8px 8px 10px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.3;
+            color: #cbd5e1;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.3), rgba(0,0,0,0.8));
+        }
+
+        .gallery-card-cat {
+            display: block;
+            font-size: 9px;
+            font-weight: 500;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .controls-panel {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .price-tag {
+            background: linear-gradient(135deg, rgba(124,58,237,0.35), rgba(192,38,211,0.25));
+            border: 1px solid rgba(167,139,250,0.45);
+            color: #f8fafc;
+        }
+
+        .addon-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.35);
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+
+        .addon-card.selected {
+            border-color: rgba(167,139,250,0.65);
+            background: rgba(139,92,246,0.12);
+            box-shadow: 0 0 20px rgba(139,92,246,0.15);
+        }
+
+        .order-summary {
+            background: rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+        }
+
+        .shipping-option {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shipping-option.selected {
+            border-color: rgba(52,211,153,0.5);
+            background: rgba(16,185,129,0.08);
+        }
+
+        .back-locked-badge {
+            font-size: 10px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-bg"></div>
+    <div class="wave-glow"></div>
+
+    <div class="content-wrap">
+        <header class="site-header sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-x-4">
+                    <div class="logo-gem w-12 h-12 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-heart text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-bold tracking-tight title-gradient">PridePass</h1>
+                        <p class="text-xs text-slate-500 -mt-0.5 tracking-widest uppercase">pridepass.shop</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="nav-pill flex rounded-full p-1 text-xs">
+                        <button onclick="setMode('builder')" id="tab-builder" class="px-4 py-2 rounded-full font-semibold transition-all nav-active">Card Builder</button>
+                        <button onclick="setMode('batch')" id="tab-batch" class="px-4 py-2 rounded-full font-semibold transition-all dim-tab">Batch Print</button>
+                    </div>
+                    <span class="badge-live text-xs font-semibold px-4 py-1.5 rounded-full hidden sm:inline-flex items-center">
+                        PREMIUM • CR80 PVC
+                    </span>
+                    <button onclick="showInfoModal()" class="btn-ghost px-4 py-2 text-sm font-medium rounded-full flex items-center gap-2">
+                        <i class="fa-solid fa-info-circle text-violet-400"></i>
+                        <span class="hidden sm:inline">Respectful Language</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 pt-8 pb-20">
+            <!-- Hero -->
+            <section class="mb-10 max-w-4xl">
+                <div class="section-tag inline-flex px-4 py-1 rounded-full text-xs font-bold mb-5">
+                    AUSTRALIAN • INCLUSIVE • PREMIUM
+                </div>
+                <h2 class="text-4xl md:text-6xl font-extrabold tracking-tighter leading-[0.95] mb-4">
+                    <span class="subtitle-metallic">Your identity.</span><br>
+                    <span class="subtitle-metallic">Your community.</span><br>
+                    <span class="title-gradient">Your card.</span>
+                </h2>
+                <p class="text-lg text-slate-400 max-w-2xl leading-relaxed">
+                    Premium holographic community access cards — designed, printed, and shipped to your door.
+                    Personalise your front, shift the hue, and order in minutes.
+                </p>
+                <div class="mt-5 inline-flex items-center gap-3 price-tag px-5 py-2.5 rounded-full">
+                    <span class="text-2xl font-bold" id="hero-price">$99.99</span>
+                    <span class="text-xs text-slate-300">front only • PVC CR80 • Australia</span>
+                </div>
+            </section>
+
+            <!-- Builder -->
+            <div id="panel-builder" class="space-y-8">
+                <!-- 1. LIVE PREVIEW (top) -->
+                <section class="preview-hero">
+                    <div class="flex items-center justify-center gap-3 mb-5 flex-wrap">
+                        <span class="live-badge">Live Preview</span>
+                        <div class="nav-pill flex rounded-full p-1 text-xs">
+                            <button onclick="switchPreviewSide('front')" id="btn-front" class="px-4 py-1.5 rounded-full font-semibold nav-active">Front</button>
+                            <button onclick="switchPreviewSide('back')" id="btn-back" class="px-4 py-1.5 rounded-full font-semibold dim-tab">Back</button>
+                        </div>
+                        <span id="back-status-badge" class="back-locked-badge"><i class="fa-solid fa-lock mr-1"></i>Front only — add custom back +$19.99</span>
+                        <span class="text-xs text-slate-500"><i class="fa-solid fa-id-card mr-1"></i>CR80 • 85.6 × 53.98 mm</span>
+                    </div>
+
+                    <div class="card-frame">
+                        <canvas id="card-preview-canvas" width="1619" height="971"></canvas>
+                    </div>
+
+                    <p id="preview-identity-label" class="text-center mt-4 text-sm font-semibold text-violet-300"></p>
+                    <p id="identity-meaning" class="text-center mt-1 text-xs text-slate-500 max-w-lg mx-auto hidden"></p>
+
+                    <div class="flex justify-center gap-6 mt-3 text-xs text-slate-500">
+                        <span><i class="fa-solid fa-check text-emerald-400 mr-1"></i>300 DPI</span>
+                        <span><i class="fa-solid fa-check text-emerald-400 mr-1"></i>Evolis ready</span>
+                        <span><i class="fa-solid fa-check text-emerald-400 mr-1"></i>Hue updates live</span>
+                    </div>
+                </section>
+
+                <!-- 2. CONTROLS (middle) -->
+                <section class="controls-panel">
+                    <div class="holo-panel">
+                        <div class="holo-panel-inner space-y-6">
+                            <!-- Hue first — see changes above instantly -->
+                            <div>
+                                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                    <label class="text-sm font-bold text-slate-200">
+                                        <i class="fa-solid fa-palette text-violet-400 mr-1"></i> Card Hue
+                                    </label>
+                                    <span class="text-xs text-slate-500">Watch your card above update as you adjust</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mb-4" id="hue-presets"></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <div class="flex justify-between text-xs text-slate-400 mb-2">
+                                            <span>Hue shift</span>
+                                            <span id="hue-value" class="text-violet-300 font-mono">0°</span>
+                                        </div>
+                                        <input type="range" id="input-hue" min="0" max="360" value="0" class="w-full">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs text-slate-400 mb-2">
+                                            <span>Colour intensity</span>
+                                            <span id="saturation-value" class="text-violet-300 font-mono">100%</span>
+                                        </div>
+                                        <input type="range" id="input-saturation" min="50" max="150" value="100" class="w-full">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border-t border-white/5 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
+                                    <input type="text" id="input-name" value="Alex Rivera" class="form-input w-full rounded-2xl px-4 py-3.5 text-lg" placeholder="Your full name">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pronouns</label>
+                                    <select id="input-pronouns" class="form-input w-full rounded-2xl px-4 py-3.5">
+                                        <option value="they/them">they/them</option>
+                                        <option value="she/her">she/her</option>
+                                        <option value="he/him">he/him</option>
+                                        <option value="she/they">she/they</option>
+                                        <option value="he/they">he/they</option>
+                                        <option value="any pronouns">any pronouns</option>
+                                        <option value="name only">name only</option>
+                                        <option value="ze/hir">ze/hir</option>
+                                        <option value="xe/xem">xe/xem</option>
+                                    </select>
+                                </div>
+                                <div id="field-member">
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Member Number</label>
+                                    <input type="text" id="input-member" value="LGB-2026-0847" class="form-input w-full rounded-2xl px-4 py-3.5 text-lg font-mono">
+                                </div>
+                                <div class="hidden" id="field-community">
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Community Since</label>
+                                    <input type="text" id="input-community" value="2026" class="form-input w-full rounded-2xl px-4 py-3.5 text-lg">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                        Quick jump <span class="text-slate-600 font-normal normal-case">(or pick visually below)</span>
+                                    </label>
+                                    <select id="input-identity" class="form-input w-full rounded-2xl px-4 py-3.5 text-base"></select>
+                                </div>
+                            </div>
+
+                            <div class="border-t border-white/5 pt-6">
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Photo</label>
+                                    <span class="text-xs text-slate-600">Overlays the circle • browser only</span>
+                                </div>
+                                <div class="flex items-center gap-4 flex-wrap">
+                                    <div class="upload-zone flex-1 min-w-[220px] rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('photo-input').click()">
+                                        <i class="fa-solid fa-camera text-2xl text-violet-400/70"></i>
+                                        <div>
+                                            <div class="font-medium text-sm">Upload photo</div>
+                                            <div class="text-xs text-slate-500">Square JPG/PNG recommended</div>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
+                                    <div id="photo-preview-container" class="hidden items-center gap-3">
+                                        <div class="w-14 h-14 rounded-xl overflow-hidden border border-violet-500/30">
+                                            <img id="photo-preview-img" class="w-full h-full object-cover" alt="">
+                                        </div>
+                                        <button onclick="clearPhoto()" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Custom back add-on -->
+                            <div class="border-t border-white/5 pt-6">
+                                <h4 class="text-sm font-bold text-slate-200 mb-3"><i class="fa-solid fa-layer-group text-violet-400 mr-1"></i> Card options</h4>
+                                <button type="button" id="addon-custom-back" onclick="toggleCustomBack()" class="addon-card w-full p-4 text-left flex items-start gap-4">
+                                    <div class="w-5 h-5 mt-0.5 rounded border border-violet-500/50 flex items-center justify-center flex-shrink-0" id="addon-check">
+                                        <i class="fa-solid fa-check text-xs text-violet-300 hidden" id="addon-check-icon"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start gap-2">
+                                            <span class="font-semibold text-slate-100">Custom card back</span>
+                                            <span class="text-violet-300 font-bold text-sm">+$19.99</span>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-1">Upload anything you like for the back — photo, art, text. Includes <strong class="text-emerald-400">FREE shipping</strong>.</p>
+                                    </div>
+                                </button>
+
+                                <div id="custom-back-upload" class="hidden mt-4">
+                                    <div class="upload-zone rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('back-photo-input').click()">
+                                        <i class="fa-solid fa-image text-2xl text-fuchsia-400/70"></i>
+                                        <div>
+                                            <div class="font-medium text-sm">Upload custom back</div>
+                                            <div class="text-xs text-slate-500">Any image — we'll print it as-is</div>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="back-photo-input" accept="image/*" class="hidden" onchange="handleCustomBackUpload(event)">
+                                    <div id="back-preview-container" class="hidden items-center gap-3 mt-3">
+                                        <div class="w-20 h-12 rounded-lg overflow-hidden border border-fuchsia-500/30">
+                                            <img id="back-preview-img" class="w-full h-full object-cover" alt="">
+                                        </div>
+                                        <button type="button" onclick="clearCustomBack()" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Shipping (hidden when custom back = free) -->
+                            <div id="shipping-section" class="border-t border-white/5 pt-6">
+                                <h4 class="text-sm font-bold text-slate-200 mb-3"><i class="fa-solid fa-truck text-cyan-400 mr-1"></i> Shipping</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button type="button" class="shipping-option selected p-4 text-left" data-shipping="standard" onclick="setShipping('standard')">
+                                        <div class="font-semibold text-sm">Standard</div>
+                                        <div class="text-violet-300 font-bold mt-1">$7.99</div>
+                                        <div class="text-xs text-slate-500 mt-1">5–10 business days</div>
+                                    </button>
+                                    <button type="button" class="shipping-option p-4 text-left" data-shipping="express" onclick="setShipping('express')">
+                                        <div class="font-semibold text-sm">Express</div>
+                                        <div class="text-violet-300 font-bold mt-1">$9.99</div>
+                                        <div class="text-xs text-slate-500 mt-1">2–4 business days</div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="free-shipping-banner" class="hidden p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-sm text-emerald-300">
+                                <i class="fa-solid fa-gift mr-2"></i> FREE shipping included with your custom back add-on
+                            </div>
+
+                            <!-- Checkout -->
+                            <div class="border-t border-white/5 pt-6 space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email for order confirmation</label>
+                                    <input type="email" id="input-email" class="form-input w-full rounded-2xl px-4 py-3.5" placeholder="you@email.com">
+                                </div>
+
+                                <div class="order-summary p-5 space-y-2" id="order-summary">
+                                    <div class="flex justify-between text-sm"><span>PridePass Card</span><span id="sum-card">$99.99</span></div>
+                                    <div class="flex justify-between text-sm hidden" id="sum-back-row"><span>Custom back</span><span id="sum-back">$19.99</span></div>
+                                    <div class="flex justify-between text-sm" id="sum-ship-row"><span id="sum-ship-label">Standard shipping</span><span id="sum-ship">$7.99</span></div>
+                                    <div class="border-t border-white/10 pt-3 flex justify-between font-bold text-lg">
+                                        <span>Total</span><span class="text-violet-300" id="sum-total">$107.98</span>
+                                    </div>
+                                </div>
+
+                                <button id="btn-checkout" onclick="proceedToCheckout()" class="btn-primary w-full px-8 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 text-white text-lg">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <span>Order Now — <span id="btn-checkout-total">$107.98</span></span>
+                                </button>
+                                <p class="text-xs text-slate-600 text-center">Secure payment via Stripe • Ships across Australia &amp; worldwide</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. CARD GALLERY (bottom) -->
+                <section>
+                    <div class="holo-panel">
+                        <div class="holo-panel-inner">
+                            <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+                                <h3 class="font-bold text-lg">Choose your card</h3>
+                                <span class="text-xs text-slate-500">51 designs • scroll to browse</span>
+                            </div>
+                            <p class="text-sm text-slate-500 mb-4">Tap any design below — your live preview above updates instantly, including hue changes.</p>
+
+                            <div class="gallery-filters" id="gallery-filters">
+                                <button type="button" class="gallery-filter active" data-filter="all" onclick="setGalleryFilter('all')">All</button>
+                                <button type="button" class="gallery-filter" data-filter="Core" onclick="setGalleryFilter('Core')">Core</button>
+                                <button type="button" class="gallery-filter" data-filter="Sexuality" onclick="setGalleryFilter('Sexuality')">Sexuality</button>
+                                <button type="button" class="gallery-filter" data-filter="Romantic" onclick="setGalleryFilter('Romantic')">Romantic</button>
+                                <button type="button" class="gallery-filter" data-filter="Gender" onclick="setGalleryFilter('Gender')">Gender</button>
+                            </div>
+
+                            <div class="card-gallery-wrap">
+                                <div class="card-gallery" id="card-gallery"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Batch -->
+            <div id="panel-batch" class="hidden max-w-4xl">
+                <div class="holo-panel">
+                    <div class="holo-panel-inner">
+                        <h3 class="text-2xl font-bold title-gradient mb-2">Batch Print</h3>
+                        <p class="text-slate-400 mb-6 leading-relaxed">
+                            Upload your orders spreadsheet and print every card in one PDF on your Evolis Primacy 2.
+                            Download the Excel template — it includes all valid identities and full instructions.
+                        </p>
+
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Orders spreadsheet</label>
+                                <input type="file" id="batch-spreadsheet" accept=".csv,.tsv,.xlsx,.xls"
+                                    class="block w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:btn-primary file:text-white file:font-semibold file:cursor-pointer">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Photos (optional)</label>
+                                <input type="file" id="batch-photos" accept="image/*" multiple onchange="handleBatchPhotos(event)"
+                                    class="block w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:btn-ghost file:text-slate-200 file:font-semibold file:cursor-pointer">
+                                <p id="batch-photo-count" class="text-xs text-slate-600 mt-2">No photos loaded</p>
+                            </div>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="batch-include-back" class="rounded border-slate-600 bg-black text-violet-500 focus:ring-violet-500">
+                                Include card back (bulk orders only)
+                            </label>
+                        </div>
+
+                        <div class="mt-6 flex flex-wrap gap-3">
+                            <button id="btn-batch-python" onclick="processBatchPython()" class="btn-primary px-6 py-3.5 rounded-2xl font-semibold text-white flex items-center gap-2">
+                                <i class="fa-brands fa-python"></i>
+                                Python Batch PDF
+                            </button>
+                            <button id="btn-batch-run" onclick="processBatch()" class="btn-emerald px-6 py-3.5 rounded-2xl font-semibold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-print"></i>
+                                Browser Batch PDF
+                            </button>
+                            <button onclick="downloadBatchTemplate('xlsx')" class="btn-primary px-6 py-3.5 rounded-2xl font-semibold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-file-excel"></i>
+                                Excel Template
+                            </button>
+                            <button onclick="downloadBatchTemplate('csv')" class="btn-ghost px-6 py-3.5 rounded-2xl font-semibold flex items-center gap-2">
+                                <i class="fa-solid fa-file-csv"></i>
+                                CSV Template
+                            </button>
+                        </div>
+
+                        <div id="batch-log" class="mt-6 p-4 rounded-2xl bg-black/40 border border-white/5 text-sm min-h-[72px]"></div>
+
+                        <div class="mt-6 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/20 text-xs text-slate-400 space-y-1.5">
+                            <p><strong class="text-violet-300">Required:</strong> name, identity (Excel has dropdowns)</p>
+                            <p><strong class="text-violet-300">Optional:</strong> pronouns, member_number, community_since, hue, saturation, photo</p>
+                            <p><strong class="text-violet-300">Python CLI:</strong> <code class="text-cyan-300/90">python scripts/batch_print.py orders.xlsx --photos-dir ./photos</code></p>
+                            <p><strong class="text-violet-300">Hue:</strong> 0 original • 30 warm • 90 emerald • 180 ocean • 270 violet • 320 rose</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="info-modal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onclick="hideInfoModal()">
+        <div class="holo-panel max-w-lg w-full" onclick="event.stopPropagation()">
+            <div class="holo-panel-inner">
+                <h3 class="text-xl font-bold mb-3 title-gradient">Respectful Language</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    Every identity uses community-respected terminology from the approved list.
+                    Pronouns are optional. Your photos are sent securely only when you place an order.
+                </p>
+                <button onclick="hideInfoModal()" class="btn-primary mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold text-white">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/identities.js"></script>
+    <script src="js/pricing.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
