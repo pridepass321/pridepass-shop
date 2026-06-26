@@ -13,6 +13,14 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.0"
+      - key: PAYMENT_PROVIDER
+        value: paypal
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_PUBLISHABLE_KEY

@@ -8,6 +8,7 @@ import socketserver
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -91,6 +92,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.handle_batch_print()
         elif self.path == "/api/create-checkout-session":
             self.handle_checkout()
+        elif self.path == "/api/capture-paypal-order":
+            self.handle_paypal_capture()
         elif self.path == "/api/webhook/stripe":
             self.handle_stripe_webhook()
         else:
@@ -101,12 +104,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         scheme = "https" if os.environ.get("RENDER") else "http"
         return f"{scheme}://{host}"
 
+    def _payment_provider(self) -> str:
+        from scripts.checkout import resolve_payment_provider
+        return resolve_payment_provider()
+
     def handle_config(self):
+        provider = self._payment_provider()
         self.send_json(200, {
             "siteName": SITE_NAME,
             "siteUrl": SITE_URL,
             "supportEmail": SUPPORT_EMAIL,
-            "stripePublishableKey": os.environ.get("STRIPE_PUBLISHABLE_KEY", ""),
+            "paymentProvider": provider,
+            "paypalClientId": os.environ.get("PAYPAL_CLIENT_ID", "") if provider == "paypal" else "",
+            "paypalMode": os.environ.get("PAYPAL_MODE", "sandbox") if provider == "paypal" else "",
+            "stripePublishableKey": os.environ.get("STRIPE_PUBLISHABLE_KEY", "") if provider == "stripe" else "",
             "pricing": {
                 "card": CARD_CENTS / 100,
                 "customBack": CUSTOM_BACK_CENTS / 100,
@@ -159,6 +170,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 back_bytes=back_bytes,
                 origin=self.origin(),
             )
+            self.send_json(200, result)
+        except Exception as exc:
+            self.send_json(400, {"error": str(exc)})
+
+    def handle_paypal_capture(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length)
+            data = json.loads(body.decode("utf-8") or "{}")
+            paypal_order_id = (data.get("paypalOrderId") or data.get("token") or "").strip()
+            order_id = (data.get("orderId") or data.get("order_id") or "").strip()
+            if not paypal_order_id or not order_id:
+                raise ValueError("paypalOrderId and orderId are required")
+
+            order_path = ROOT / "orders" / order_id / "order.json"
+            if not order_path.exists():
+                raise ValueError(f"Unknown order: {order_id}")
+
+            order_data = json.loads(order_path.read_text(encoding="utf-8"))
+            if order_data.get("status") == "paid":
+                self.send_json(200, {"status": "paid", "orderId": order_id, "alreadyCaptured": True})
+                return
+
+            sys.path.insert(0, str(ROOT / "scripts"))
+            from paypal_checkout import capture_paypal_order
+            result = capture_paypal_order(paypal_order_id, order_id)
+
+            order_data["status"] = "paid"
+            order_data["paypal_capture_id"] = result.get("captureId")
+            order_data["paypal_order_id"] = paypal_order_id
+            order_data["paid_at"] = datetime.now(timezone.utc).isoformat()
+            order_path.write_text(json.dumps(order_data, indent=2), encoding="utf-8")
+
             self.send_json(200, result)
         except Exception as exc:
             self.send_json(400, {"error": str(exc)})

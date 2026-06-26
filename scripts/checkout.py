@@ -78,6 +78,17 @@ def save_order_payload(order_id: str, payload: dict, front_bytes: bytes | None, 
     return order_dir
 
 
+def resolve_payment_provider() -> str:
+    explicit = os.environ.get("PAYMENT_PROVIDER", "").strip().lower()
+    if explicit in ("paypal", "stripe"):
+        return explicit
+    if os.environ.get("PAYPAL_CLIENT_ID", "").strip() and os.environ.get("PAYPAL_CLIENT_SECRET", "").strip():
+        return "paypal"
+    if os.environ.get("STRIPE_SECRET_KEY", "").strip():
+        return "stripe"
+    return ""
+
+
 def create_checkout_session(
     card_data: dict,
     customer: dict,
@@ -87,9 +98,24 @@ def create_checkout_session(
     back_bytes: bytes | None = None,
     origin: str | None = None,
 ) -> dict:
+    provider = resolve_payment_provider()
+    if provider == "paypal":
+        from scripts.paypal_checkout import create_checkout_session as create_paypal_checkout_session
+        return create_paypal_checkout_session(
+            card_data=card_data,
+            customer=customer,
+            custom_back=custom_back,
+            shipping_method=shipping_method,
+            front_bytes=front_bytes,
+            back_bytes=back_bytes,
+            origin=origin,
+        )
+
     secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
     if not secret:
-        raise RuntimeError("STRIPE_SECRET_KEY is not configured on the server.")
+        raise RuntimeError(
+            "No payment provider configured. Set PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET or STRIPE_SECRET_KEY."
+        )
     if stripe is None:
         raise RuntimeError("stripe package not installed. Run: pip install stripe")
 

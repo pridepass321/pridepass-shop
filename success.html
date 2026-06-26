@@ -21,7 +21,8 @@
         </div>
         <h1 class="text-3xl font-bold title-gradient mb-3">Thank you!</h1>
         <p class="text-slate-400 mb-2">Your PridePass order is confirmed.</p>
-        <p id="order-ref" class="text-sm text-violet-300 font-mono mb-8"></p>
+        <p id="order-ref" class="text-sm text-violet-300 font-mono mb-4"></p>
+        <p id="payment-status" class="text-sm text-slate-500 mb-8"></p>
         <p class="text-slate-500 text-sm mb-8 leading-relaxed">
             We'll print your premium PVC card and ship it to you.
             Questions? Email <a href="mailto:pridepass321@gmail.com" class="text-violet-400 hover:underline">pridepass321@gmail.com</a>
@@ -33,7 +34,30 @@
     <script>
         const params = new URLSearchParams(location.search);
         const orderId = params.get('order_id');
+        const paypalToken = params.get('token');
+        const statusEl = document.getElementById('payment-status');
+
         if (orderId) document.getElementById('order-ref').textContent = 'Order ' + orderId;
+
+        async function finalizePayPal() {
+            if (!orderId || !paypalToken) return;
+            statusEl.textContent = 'Confirming your payment…';
+            try {
+                const res = await fetch('/api/capture-paypal-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, paypalOrderId: paypalToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Payment confirmation failed');
+                statusEl.textContent = 'Payment confirmed. Thank you!';
+            } catch (err) {
+                statusEl.textContent = err.message;
+                statusEl.classList.add('text-rose-400');
+            }
+        }
+
+        finalizePayPal();
     </script>
 </body>
 </html>

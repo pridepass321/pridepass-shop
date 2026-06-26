@@ -26,7 +26,7 @@ let state = {
     mode: 'builder'
 };
 
-let shopConfig = { stripePublishableKey: '' };
+let shopConfig = { stripePublishableKey: '', paymentProvider: '', paypalClientId: '', paypalMode: '' };
 
 let batchPhotos = new Map();
 
@@ -447,6 +447,19 @@ async function proceedToCheckout() {
     }
 }
 
+function updatePaymentLabel() {
+    const el = $('payment-provider-label');
+    if (!el) return;
+    if (shopConfig.paymentProvider === 'paypal') {
+        const mode = shopConfig.paypalMode === 'sandbox' ? ' (sandbox)' : '';
+        el.textContent = `Secure payment via PayPal${mode} • PVC CR80 • Ships Australia & worldwide`;
+    } else if (shopConfig.paymentProvider === 'stripe') {
+        el.textContent = 'Secure payment via Stripe • PVC CR80 • Ships Australia & worldwide';
+    } else {
+        el.textContent = 'Secure checkout • PVC CR80 • Ships Australia & worldwide';
+    }
+}
+
 async function loadShopConfig() {
     try {
         const res = await fetch('/api/config');
@@ -455,6 +468,7 @@ async function loadShopConfig() {
         if (shopConfig.pricing) {
             Object.assign(PRICING, shopConfig.pricing);
         }
+        updatePaymentLabel();
         updateOrderSummary();
     } catch (_) { /* offline / static preview */ }
 }
