@@ -3,7 +3,7 @@
 CARD_LAYOUT = {
     "width": 1619,
     "height": 971,
-    "photo": {"cx": 0.1495, "cy": 0.5489, "r": 0.144},
+    "photo": {"cx": 0.748, "cy": 0.4616, "r": 0.152},
     "name": {"x": 0.408, "y": 0.535, "maxWidth": 0.165, "fontSize": 0.036},
     "field2": {"x": 0.355, "y": 0.702, "maxWidth": 0.22, "fontSize": 0.032},
     "pronouns": {"x": 0.355, "y": 0.598, "fontSize": 0.018, "enabled": False},

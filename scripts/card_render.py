@@ -11,6 +11,7 @@ from identities_data import CARD_LAYOUT, resolve_identity
 
 ROOT = Path(__file__).resolve().parent.parent
 CARDS_DIR = ROOT / "assets" / "cards"
+PHOTO_LAYOUTS_PATH = ROOT / "data" / "photo_layouts.json"
 FONT_CANDIDATES = [
     Path(r"C:\Windows\Fonts\segoeuib.ttf"),
     Path(r"C:\Windows\Fonts\arialbd.ttf"),
@@ -25,13 +26,23 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _resolve_layout(width: int, height: int) -> dict:
+def _photo_layout_for(identity_id: str) -> dict:
+    if PHOTO_LAYOUTS_PATH.exists():
+        import json
+        layouts = json.loads(PHOTO_LAYOUTS_PATH.read_text(encoding="utf-8"))
+        if identity_id in layouts:
+            return layouts[identity_id]
+    return CARD_LAYOUT["photo"]
+
+
+def _resolve_layout(width: int, height: int, identity_id: str | None = None) -> dict:
     layout = CARD_LAYOUT
+    photo = _photo_layout_for(identity_id) if identity_id else layout["photo"]
     return {
         "photo": {
-            "cx": layout["photo"]["cx"] * width,
-            "cy": layout["photo"]["cy"] * height,
-            "r": layout["photo"]["r"] * height,
+            "cx": photo["cx"] * width,
+            "cy": photo["cy"] * height,
+            "r": photo["r"] * height,
         },
         "name": {
             "x": layout["name"]["x"] * width,
@@ -131,7 +142,7 @@ def render_card_front(
 
     bg = Image.open(card_path).convert("RGBA")
     bg = apply_hue_saturation(bg, hue, saturation)
-    layout = _resolve_layout(bg.width, bg.height)
+    layout = _resolve_layout(bg.width, bg.height, identity["id"])
     draw = ImageDraw.Draw(bg)
 
     if photo_path and photo_path.exists():

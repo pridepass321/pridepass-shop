@@ -1,4 +1,8 @@
 const imageCache = new Map();
+const shiftedCache = new Map();
+const SHIFTED_CACHE_MAX = 48;
+
+const PREVIEW_SCALE = 0.5;
 
 function loadImage(src) {
     if (imageCache.has(src)) return imageCache.get(src);
@@ -88,6 +92,7 @@ function drawFieldText(ctx, text, box, color = '#f8fafc') {
     ctx.shadowBlur = 0;
 }
 
+/** PIL-compatible HSV: H and S on 0–255, V = max(R,G,B). */
 function rgbToHsv255(r, g, b) {
     r /= 255;
     g /= 255;
@@ -96,8 +101,8 @@ function rgbToHsv255(r, g, b) {
     const min = Math.min(r, g, b);
     const d = max - min;
     let hh = 0;
-    const ss = max === 0 ? 0 : (d / max) * 255;
     const vv = max * 255;
+    const ss = max === 0 ? 0 : ((max - min) / max) * 255;
     if (d !== 0) {
         if (max === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
         else if (max === g) hh = ((b - r) / d + 2) / 6;
@@ -133,27 +138,18 @@ function hsv255ToRgb(h, s, v) {
     return [Math.round(r), Math.round(g), Math.round(b)];
 }
 
-function applyHueSaturationCanvas(sourceImg, hue = 0, saturation = 100) {
-    const w = sourceImg.naturalWidth || sourceImg.width;
-    const h = sourceImg.naturalHeight || sourceImg.height;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
+function applyHueSaturationPixels(imageData, hue, saturation) {
     hue = Number(hue) || 0;
     saturation = Number(saturation) || 100;
-
-    ctx.drawImage(sourceImg, 0, 0);
-    if (hue === 0 && saturation === 100) return canvas;
-
-    const imageData = ctx.getImageData(0, 0, w, h);
     const data = imageData.data;
+    if (hue === 0 && saturation === 100) return imageData;
+
     const hueShift = (hue / 360) * 255;
     const satMult = saturation / 100;
 
     for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] === 0) continue;
+        const a = data[i + 3];
+        if (a === 0) continue;
         const [hh, ss, vv] = rgbToHsv255(data[i], data[i + 1], data[i + 2]);
         const nh = (hh + hueShift) % 255;
         const ns = Math.max(0, Math.min(255, ss * satMult));
@@ -162,9 +158,45 @@ function applyHueSaturationCanvas(sourceImg, hue = 0, saturation = 100) {
         data[i + 1] = rgb[1];
         data[i + 2] = rgb[2];
     }
+    return imageData;
+}
 
-    ctx.putImageData(imageData, 0, 0);
+function getShiftedBackground(sourceImg, hue, saturation, scale = 1) {
+    const src = sourceImg.currentSrc || sourceImg.src || '';
+    const cacheKey = `${src}@${scale}@${hue}@${saturation}`;
+    if (shiftedCache.has(cacheKey)) return shiftedCache.get(cacheKey);
+
+    const sw = sourceImg.naturalWidth || sourceImg.width;
+    const sh = sourceImg.naturalHeight || sourceImg.height;
+    const w = Math.max(1, Math.round(sw * scale));
+    const h = Math.max(1, Math.round(sh * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(sourceImg, 0, 0, w, h);
+
+    if (hue !== 0 || saturation !== 100) {
+        const imageData = ctx.getImageData(0, 0, w, h);
+        ctx.putImageData(applyHueSaturationPixels(imageData, hue, saturation), 0, 0);
+    }
+
+    if (shiftedCache.size >= SHIFTED_CACHE_MAX) {
+        const first = shiftedCache.keys().next().value;
+        shiftedCache.delete(first);
+    }
+    shiftedCache.set(cacheKey, canvas);
     return canvas;
+}
+
+function buildLayoutForIdentity(identityId, width, height) {
+    const photoLayout = getPhotoLayout(identityId);
+    const layout = {
+        ...CARD_LAYOUT,
+        photo: photoLayout
+    };
+    return resolveLayout(layout, width, height);
 }
 
 async function renderCardFront(options) {
@@ -177,35 +209,44 @@ async function renderCardFront(options) {
         pronouns = '',
         photo = null,
         hue = 0,
-        saturation = 100
+        saturation = 100,
+        previewScale = 1,
+        overlayText = true
     } = options;
 
     const identity = IDENTITY_BY_ID[identityId];
     if (!identity) throw new Error(`Unknown identity: ${identityId}`);
 
     const bg = await loadImage(getIdentityImagePath(identityId));
-    const canvas = document.createElement('canvas');
-    canvas.width = bg.naturalWidth || CARD_LAYOUT.width;
-    canvas.height = bg.naturalHeight || CARD_LAYOUT.height;
-    const ctx = canvas.getContext('2d');
-    const resolved = resolveLayout(CARD_LAYOUT, canvas.width, canvas.height);
+    const fullW = bg.naturalWidth || CARD_LAYOUT.width;
+    const fullH = bg.naturalHeight || CARD_LAYOUT.height;
+    const scale = Math.max(0.25, Math.min(1, Number(previewScale) || 1));
+    const canvasW = Math.round(fullW * scale);
+    const canvasH = Math.round(fullH * scale);
 
-    const shifted = applyHueSaturationCanvas(bg, hue, saturation);
-    ctx.drawImage(shifted, 0, 0, canvas.width, canvas.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+    const resolved = buildLayoutForIdentity(identityId, canvasW, canvasH);
+
+    const shifted = getShiftedBackground(bg, hue, saturation, scale);
+    ctx.drawImage(shifted, 0, 0, canvasW, canvasH);
 
     if (photo) drawCircularPhoto(ctx, photo, resolved);
 
-    drawFieldText(ctx, name, resolved.name);
+    if (overlayText) {
+        drawFieldText(ctx, name, resolved.name);
+        const sinceValue = memberSince || communitySince || memberNumber;
+        drawFieldText(ctx, sinceValue, resolved.field2);
 
-    const sinceValue = memberSince || communitySince || memberNumber;
-    drawFieldText(ctx, sinceValue, resolved.field2);
-
-    if (CARD_LAYOUT.pronouns?.enabled !== false && pronouns && pronouns !== 'name only') {
-        ctx.font = `500 ${resolved.pronouns.fontSize}px Inter, system-ui, sans-serif`;
-        ctx.fillStyle = 'rgba(248,250,252,0.85)';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(pronouns, resolved.pronouns.x, resolved.pronouns.y);
+        if (CARD_LAYOUT.pronouns?.enabled !== false && pronouns && pronouns !== 'name only') {
+            ctx.font = `500 ${resolved.pronouns.fontSize}px Inter, system-ui, sans-serif`;
+            ctx.fillStyle = 'rgba(248,250,252,0.85)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(pronouns, resolved.pronouns.x, resolved.pronouns.y);
+        }
     }
 
     return canvas;
@@ -338,7 +379,11 @@ async function renderPreview(canvasEl, side, options) {
             rendered = renderCardBackLocked(CARD_LAYOUT.width, CARD_LAYOUT.height, customBack);
         }
     } else {
-        rendered = await renderCardFront(options);
+        rendered = await renderCardFront({
+            ...options,
+            previewScale: options.previewScale ?? PREVIEW_SCALE,
+            overlayText: false
+        });
     }
 
     const ctx = canvasEl.getContext('2d');
@@ -364,7 +409,7 @@ async function exportCardsPdf(cards, includeBack = true, useCustomBack = false) 
     for (let i = 0; i < cards.length; i++) {
         if (i > 0) pdf.addPage([85.6, 53.98], 'landscape');
 
-        const front = await renderCardFront(cards[i]);
+        const front = await renderCardFront({ ...cards[i], previewScale: 1, overlayText: true });
         pdf.addImage(canvasToDataUrl(front), 'PNG', 0, 0, 85.6, 53.98, undefined, 'FAST');
 
         if (includeBack) {
@@ -400,4 +445,8 @@ async function loadPhotoFromFile(file) {
 async function loadPhotoFromDataUrl(dataUrl) {
     if (!dataUrl) return null;
     return loadImage(dataUrl);
+}
+
+function clearHueCache() {
+    shiftedCache.clear();
 }

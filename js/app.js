@@ -68,20 +68,31 @@ function applyHuePreset(hue, saturation) {
     $('hue-value').textContent = `${hue}°`;
     $('saturation-value').textContent = `${saturation}%`;
     updateHuePresetActive();
-    updatePreview();
+    schedulePreviewUpdate();
+}
+
+let previewRaf = null;
+let previewToken = 0;
+
+function schedulePreviewUpdate() {
+    if (previewRaf) cancelAnimationFrame(previewRaf);
+    previewRaf = requestAnimationFrame(() => {
+        previewRaf = null;
+        updatePreview();
+    });
 }
 
 function onHueChange(value) {
     state.hue = Number(value) || 0;
     $('hue-value').textContent = `${state.hue}°`;
     updateHuePresetActive();
-    updatePreview();
+    schedulePreviewUpdate();
 }
 
 function onSaturationChange(value) {
     state.saturation = Number(value) || 100;
     $('saturation-value').textContent = `${state.saturation}%`;
-    updatePreview();
+    schedulePreviewUpdate();
 }
 
 function buildIdentitySelect() {
@@ -173,6 +184,7 @@ function focusLivePreview(fromQuickJump = false) {
 
 function selectTheme(id, options = {}) {
     const { fromQuickJump = false } = options;
+    if (typeof clearHueCache === 'function') clearHueCache();
     state.identityId = id;
     $('input-identity').value = id;
     updateFieldVisibility();
@@ -474,8 +486,11 @@ async function loadShopConfig() {
 }
 
 async function updatePreview() {
+    const token = ++previewToken;
     const canvas = $('card-preview-canvas');
+    if (!canvas) return;
     await renderPreview(canvas, state.previewSide, getCardOptions());
+    if (token !== previewToken) return;
 }
 
 function switchPreviewSide(side) {
@@ -748,13 +763,12 @@ function hideInfoModal() {
 }
 
 function bindEvents() {
-    $('input-name').addEventListener('input', e => { state.name = e.target.value; updatePreview(); });
+    $('input-name').addEventListener('input', e => { state.name = e.target.value; });
     $('input-member-since').addEventListener('input', e => {
         state.memberSince = e.target.value;
         state.communitySince = e.target.value;
-        updatePreview();
     });
-    $('input-pronouns').addEventListener('change', e => { state.pronouns = e.target.value; updatePreview(); });
+    $('input-pronouns').addEventListener('change', e => { state.pronouns = e.target.value; });
     $('input-hue').addEventListener('input', e => onHueChange(e.target.value));
     $('input-saturation').addEventListener('input', e => onSaturationChange(e.target.value));
     $('input-identity').addEventListener('change', e => {
