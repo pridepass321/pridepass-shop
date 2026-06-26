@@ -6,6 +6,18 @@ const PRICING = {
     currency: 'AUD'
 };
 
+/** Print specs — CR80 @ 300 DPI */
+const IMAGE_SPECS = {
+    front: { min: 600, ideal: 900, hint: '600×600 px min (900×900 recommended) @ 300 DPI' },
+    back: { width: 1011, height: 638, hint: '1011×638 px @ 300 DPI (CR80 card size)' }
+};
+
+/** Print specs — CR80 @ 300 DPI */
+const IMAGE_SPECS = {
+    front: { min: 600, ideal: 900, label: 'square', hint: '600×600 px min (900×900 recommended) @ 300 DPI' },
+    back: { width: 1011, height: 638, hint: '1011×638 px @ 300 DPI (CR80 card size)' }
+};
+
 function formatMoney(amount) {
     return `$${amount.toFixed(2)}`;
 }

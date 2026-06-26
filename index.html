@@ -554,6 +554,42 @@
             font-size: 10px;
             color: #94a3b8;
         }
+
+        .photo-spec {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .photo-spec strong { color: #94a3b8; font-weight: 600; }
+
+        .photo-warn {
+            font-size: 11px;
+            color: #fbbf24;
+        }
+
+        .photo-ok {
+            font-size: 11px;
+            color: #34d399;
+        }
+
+        .photo-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .photo-circle-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px dashed rgba(167,139,250,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #a78bfa;
+        }
     </style>
 </head>
 <body>
@@ -704,25 +740,38 @@
                                 </div>
                             </div>
 
-                            <div class="border-t border-white/5 pt-6">
-                                <div class="flex justify-between mb-2">
-                                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Photo</label>
-                                    <span class="text-xs text-slate-600">Overlays the circle • browser only</span>
-                                </div>
-                                <div class="flex items-center gap-4 flex-wrap">
-                                    <div class="upload-zone flex-1 min-w-[220px] rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('photo-input').click()">
-                                        <i class="fa-solid fa-camera text-2xl text-violet-400/70"></i>
+                            <!-- Photos -->
+                            <div class="border-t border-white/5 pt-6 space-y-5">
+                                <h4 class="text-sm font-bold text-slate-200"><i class="fa-solid fa-images text-violet-400 mr-1"></i> Your photos</h4>
+
+                                <!-- Front circle photo — always available -->
+                                <div class="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+                                    <div class="photo-section-title mb-2">
+                                        <span class="photo-circle-icon"><i class="fa-solid fa-user"></i></span>
                                         <div>
-                                            <div class="font-medium text-sm">Upload photo</div>
-                                            <div class="text-xs text-slate-500">Square JPG/PNG recommended</div>
+                                            <label class="text-sm font-semibold text-slate-100">Front photo — goes in the circle</label>
+                                            <p class="photo-spec mt-0.5">Optional • Square JPG or PNG • <strong>600×600 px min @ 300 DPI</strong> (900×900 ideal)</p>
                                         </div>
                                     </div>
-                                    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
-                                    <div id="photo-preview-container" class="hidden items-center gap-3">
-                                        <div class="w-14 h-14 rounded-xl overflow-hidden border border-violet-500/30">
-                                            <img id="photo-preview-img" class="w-full h-full object-cover" alt="">
+                                    <p class="text-xs text-slate-500 mb-3">Shows live in the preview above, centred in the emblem circle on your card front.</p>
+                                    <div class="flex items-center gap-4 flex-wrap">
+                                        <div class="upload-zone flex-1 min-w-[220px] rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('photo-input').click()">
+                                            <i class="fa-solid fa-camera text-2xl text-violet-400/70"></i>
+                                            <div>
+                                                <div class="font-medium text-sm">Upload front photo</div>
+                                                <div class="text-xs text-slate-500">Tap to choose from your device</div>
+                                            </div>
                                         </div>
-                                        <button onclick="clearPhoto()" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                        <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="handlePhotoUpload(event)">
+                                        <div id="photo-preview-container" class="hidden items-center gap-3">
+                                            <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-violet-500/40">
+                                                <img id="photo-preview-img" class="w-full h-full object-cover" alt="">
+                                            </div>
+                                            <div>
+                                                <p id="photo-dim-status" class="photo-ok"></p>
+                                                <button type="button" onclick="clearPhoto()" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -739,24 +788,28 @@
                                             <span class="font-semibold text-slate-100">Custom card back</span>
                                             <span class="text-violet-300 font-bold text-sm">+$19.99</span>
                                         </div>
-                                        <p class="text-xs text-slate-500 mt-1">Upload anything you like for the back — photo, art, text. Includes <strong class="text-emerald-400">FREE shipping</strong>.</p>
+                                        <p class="text-xs text-slate-500 mt-1">Photo, art, or design for the reverse side. Includes <strong class="text-emerald-400">FREE shipping</strong>.</p>
                                     </div>
                                 </button>
 
-                                <div id="custom-back-upload" class="hidden mt-4">
+                                <div id="custom-back-upload" class="hidden mt-4 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4">
+                                    <p class="photo-spec mb-3"><strong>1011×638 px @ 300 DPI</strong> required (CR80 card ratio 85.6∶53.98 mm) — photo, art, or text</p>
                                     <div class="upload-zone rounded-2xl px-5 py-4 flex items-center gap-3 cursor-pointer" onclick="document.getElementById('back-photo-input').click()">
                                         <i class="fa-solid fa-image text-2xl text-fuchsia-400/70"></i>
                                         <div>
                                             <div class="font-medium text-sm">Upload custom back</div>
-                                            <div class="text-xs text-slate-500">Any image — we'll print it as-is</div>
+                                            <div class="text-xs text-slate-500">JPG or PNG — we print exactly what you upload</div>
                                         </div>
                                     </div>
-                                    <input type="file" id="back-photo-input" accept="image/*" class="hidden" onchange="handleCustomBackUpload(event)">
+                                    <input type="file" id="back-photo-input" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="handleCustomBackUpload(event)">
                                     <div id="back-preview-container" class="hidden items-center gap-3 mt-3">
                                         <div class="w-20 h-12 rounded-lg overflow-hidden border border-fuchsia-500/30">
                                             <img id="back-preview-img" class="w-full h-full object-cover" alt="">
                                         </div>
-                                        <button type="button" onclick="clearCustomBack()" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                        <div>
+                                            <p id="back-dim-status" class="photo-ok"></p>
+                                            <button type="button" onclick="clearCustomBack(false)" class="text-sm text-slate-500 hover:text-rose-400">Remove</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

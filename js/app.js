@@ -288,6 +288,37 @@ function updateOrderSummary() {
     $('hero-price') && ($('hero-price').textContent = formatMoney(PRICING.card));
 }
 
+function checkFrontPhotoDims(img) {
+    const side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    const el = $('photo-dim-status');
+    if (!el) return;
+    if (side >= IMAGE_SPECS.front.ideal) {
+        el.className = 'photo-ok';
+        el.textContent = `${img.naturalWidth}×${img.naturalHeight} — great for 300 DPI`;
+    } else if (side >= IMAGE_SPECS.front.min) {
+        el.className = 'photo-warn';
+        el.textContent = `${img.naturalWidth}×${img.naturalHeight} — OK; ${IMAGE_SPECS.front.ideal}×${IMAGE_SPECS.front.ideal}+ is sharper`;
+    } else {
+        el.className = 'photo-warn';
+        el.textContent = `${img.naturalWidth}×${img.naturalHeight} — below 300 DPI minimum (${IMAGE_SPECS.front.min}×${IMAGE_SPECS.front.min})`;
+    }
+}
+
+function checkBackPhotoDims(img) {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const el = $('back-dim-status');
+    if (!el) return;
+    const { width: needW, height: needH } = IMAGE_SPECS.back;
+    if (w >= needW && h >= needH) {
+        el.className = 'photo-ok';
+        el.textContent = `${w}×${h} — ready for 300 DPI print`;
+    } else {
+        el.className = 'photo-warn';
+        el.textContent = `${w}×${h} — need at least ${needW}×${needH} px @ 300 DPI`;
+    }
+}
+
 async function handleCustomBackUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -296,6 +327,7 @@ async function handleCustomBackUpload(event) {
     $('back-preview-container')?.classList.remove('hidden');
     $('back-preview-container')?.classList.add('flex');
     $('back-preview-img').src = URL.createObjectURL(file);
+    checkBackPhotoDims(state.customBackImage);
     updateBackBadge();
     if (state.previewSide === 'back') updatePreview();
 }
@@ -325,8 +357,23 @@ async function proceedToCheckout() {
         return;
     }
     if (state.customBack && !state.customBackFile) {
-        alert('Please upload your custom back image, or remove the custom back add-on.');
+        alert('Please upload your custom back image (1011×638 px @ 300 DPI), or remove the custom back add-on.');
         return;
+    }
+    if (state.customBackFile && state.customBackImage) {
+        const w = state.customBackImage.naturalWidth || state.customBackImage.width;
+        const h = state.customBackImage.naturalHeight || state.customBackImage.height;
+        if (w < IMAGE_SPECS.back.width || h < IMAGE_SPECS.back.height) {
+            const ok = confirm(`Your back image is ${w}×${h} px. For crisp 300 DPI print we need ${IMAGE_SPECS.back.width}×${IMAGE_SPECS.back.height} px. Continue anyway?`);
+            if (!ok) return;
+        }
+    }
+    if (state.photoFile && state.photo) {
+        const side = Math.min(state.photo.naturalWidth || state.photo.width, state.photo.naturalHeight || state.photo.height);
+        if (side < IMAGE_SPECS.front.min) {
+            const ok = confirm(`Your front photo is small for 300 DPI circle print (min ${IMAGE_SPECS.front.min}×${IMAGE_SPECS.front.min} px). Continue anyway?`);
+            if (!ok) return;
+        }
     }
 
     btn.disabled = true;
@@ -406,6 +453,7 @@ async function handlePhotoUpload(event) {
     $('photo-preview-container').classList.remove('hidden');
     $('photo-preview-container').classList.add('flex');
     $('photo-preview-img').src = URL.createObjectURL(file);
+    checkFrontPhotoDims(state.photo);
     updatePreview();
 }
 
