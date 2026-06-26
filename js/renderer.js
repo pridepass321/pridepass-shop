@@ -20,16 +20,23 @@ function drawBackgroundWithHue(ctx, img, width, height, hue, saturation) {
     ctx.restore();
 }
 
-/** Instant live preview — CSS filter on the card frame (no canvas redraw). */
-function applyPreviewHueFilter(hue = 0, saturation = 100, enabled = true) {
-    const frame = document.querySelector('.preview-hero .card-frame');
-    if (!frame) return;
+function setPreviewHueFilterStyle(targetEl, hue = 0, saturation = 100, enabled = true) {
+    if (!targetEl) return;
     if (!enabled) {
-        frame.style.filter = 'none';
+        targetEl.style.filter = '';
+        targetEl.style.webkitFilter = '';
         return;
     }
-    const filter = buildHueFilter(hue, saturation);
-    frame.style.filter = filter === 'none' ? 'none' : filter;
+    const css = buildHueFilter(hue, saturation);
+    const value = css === 'none' ? '' : css;
+    targetEl.style.filter = value;
+    targetEl.style.webkitFilter = value;
+}
+
+/** Instant live preview — CSS hue/sat on card art only (no canvas redraw per slider tick). */
+function applyPreviewHueFilter(hue = 0, saturation = 100, enabled = true) {
+    const visual = document.getElementById('card-preview-visual');
+    setPreviewHueFilterStyle(visual, hue, saturation, enabled);
 }
 
 function loadImage(src) {
