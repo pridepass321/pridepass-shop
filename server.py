@@ -125,6 +125,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         from scripts.checkout import resolve_payment_provider
         return resolve_payment_provider()
 
+    def _fulfill_paid_order(self, order_id: str) -> dict | None:
+        try:
+            from scripts.order_fulfill import fulfill_and_notify
+            return fulfill_and_notify(order_id)
+        except Exception as exc:
+            print(f"[fulfillment] {order_id}: {exc}", file=sys.stderr)
+            order_path = ROOT / "orders" / order_id / "order.json"
+            if order_path.exists():
+                data = json.loads(order_path.read_text(encoding="utf-8"))
+                data["fulfillment_error"] = str(exc)
+                order_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            return {"orderId": order_id, "emailSent": False, "error": str(exc)}
+
     def handle_config(self):
         provider = self._payment_provider()
         self.send_json(200, {
@@ -219,6 +232,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             order_data["paid_at"] = datetime.now(timezone.utc).isoformat()
             order_path.write_text(json.dumps(order_data, indent=2), encoding="utf-8")
 
+            fulfillment = self._fulfill_paid_order(order_id)
+            if fulfillment:
+                result["fulfillment"] = fulfillment
+
             self.send_json(200, result)
         except Exception as exc:
             self.send_json(400, {"error": str(exc)})
@@ -245,7 +262,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         data = json.loads(order_path.read_text(encoding="utf-8"))
                         data["status"] = "paid"
                         data["stripe_payment_status"] = session.get("payment_status")
+                        data["paid_at"] = datetime.now(timezone.utc).isoformat()
                         order_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                        self._fulfill_paid_order(order_id)
 
             self.send_json(200, {"received": True})
         except Exception as exc:
