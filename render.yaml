@@ -1,8 +1,13 @@
+# PridePass — pridepass.shop
+# One-click deploy: https://render.com/deploy?repo=https://github.com/pridepass321/pridepass-shop
+
 services:
   - type: web
     name: pridepass
     runtime: python
     plan: free
+    repo: https://github.com/pridepass321/pridepass-shop
+    branch: master
     buildCommand: pip install -r requirements.txt
     startCommand: python server.py
     envVars:
