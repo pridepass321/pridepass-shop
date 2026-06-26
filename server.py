@@ -15,6 +15,23 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+
+def load_local_env() -> None:
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+load_local_env()
+
 from config.pricing import (  # noqa: E402
     CARD_CENTS,
     CUSTOM_BACK_CENTS,
