@@ -52,6 +52,10 @@ function fitText(ctx, text, maxWidth, fontSize, fontWeight = '700') {
 function drawCircularPhoto(ctx, photo, resolved) {
     if (!photo) return;
     const { cx, cy, r } = resolved.photo;
+    const pw = photo.naturalWidth || photo.width;
+    const ph = photo.naturalHeight || photo.height;
+    if (!pw || !ph) return;
+
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -59,7 +63,7 @@ function drawCircularPhoto(ctx, photo, resolved) {
     ctx.clip();
 
     const size = r * 2;
-    const aspect = photo.width / photo.height;
+    const aspect = pw / ph;
     let drawW, drawH;
     if (aspect >= 1) {
         drawH = size;
@@ -69,20 +73,6 @@ function drawCircularPhoto(ctx, photo, resolved) {
         drawH = size / aspect;
     }
     ctx.drawImage(photo, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
-
-    const shade = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
-    shade.addColorStop(0, 'rgba(0,0,0,0)');
-    shade.addColorStop(1, 'rgba(0,0,0,0.35)');
-    ctx.fillStyle = shade;
-    ctx.fillRect(cx - r, cy - r, size, size);
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = Math.max(2, r * 0.02);
-    ctx.stroke();
     ctx.restore();
 }
 
@@ -105,11 +95,36 @@ function buildHueFilter(hue = 0, saturation = 100) {
     return `hue-rotate(${h}deg) saturate(${s / 100})`;
 }
 
+function applyHueSaturationCanvas(sourceImg, hue = 0, saturation = 100) {
+    const w = sourceImg.naturalWidth || sourceImg.width;
+    const h = sourceImg.naturalHeight || sourceImg.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    ctx.drawImage(sourceImg, 0, 0);
+    const alphaData = ctx.getImageData(0, 0, w, h);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.filter = buildHueFilter(hue, saturation);
+    ctx.drawImage(sourceImg, 0, 0);
+    ctx.filter = 'none';
+
+    const rgbData = ctx.getImageData(0, 0, w, h);
+    for (let i = 0; i < rgbData.data.length; i += 4) {
+        rgbData.data[i + 3] = alphaData.data[i + 3];
+    }
+    ctx.putImageData(rgbData, 0, 0);
+    return canvas;
+}
+
 async function renderCardFront(options) {
     const {
         identityId,
         name = '',
         memberNumber = '',
+        memberSince = '',
         communitySince = '',
         pronouns = '',
         photo = null,
@@ -127,17 +142,15 @@ async function renderCardFront(options) {
     const ctx = canvas.getContext('2d');
     const resolved = resolveLayout(CARD_LAYOUT, canvas.width, canvas.height);
 
-    ctx.save();
-    ctx.filter = buildHueFilter(hue, saturation);
-    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    const shifted = applyHueSaturationCanvas(bg, hue, saturation);
+    ctx.drawImage(shifted, 0, 0, canvas.width, canvas.height);
 
     if (photo) drawCircularPhoto(ctx, photo, resolved);
 
     drawFieldText(ctx, name, resolved.name);
 
-    const secondValue = identity.fieldType === 'member' ? memberNumber : communitySince;
-    drawFieldText(ctx, secondValue, resolved.field2);
+    const sinceValue = memberSince || communitySince || memberNumber;
+    drawFieldText(ctx, sinceValue, resolved.field2);
 
     if (pronouns && pronouns !== 'name only') {
         ctx.font = `500 ${resolved.pronouns.fontSize}px Inter, system-ui, sans-serif`;
@@ -324,7 +337,9 @@ async function loadPhotoFromFile(file) {
         const reader = new FileReader();
         reader.onload = async () => {
             try {
-                resolve(await loadImage(reader.result));
+                const img = await loadImage(reader.result);
+                if (img.decode) await img.decode();
+                resolve(img);
             } catch (err) {
                 reject(err);
             }

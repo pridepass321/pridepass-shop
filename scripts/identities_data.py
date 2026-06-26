@@ -3,10 +3,10 @@
 CARD_LAYOUT = {
     "width": 1619,
     "height": 971,
-    "photo": {"cx": 0.801, "cy": 0.407, "r": 0.226},
-    "name": {"x": 0.166, "y": 0.536, "maxWidth": 0.356, "fontSize": 0.044},
-    "field2": {"x": 0.166, "y": 0.674, "maxWidth": 0.297, "fontSize": 0.038},
-    "pronouns": {"x": 0.166, "y": 0.578, "fontSize": 0.022},
+    "photo": {"cx": 0.791, "cy": 0.467, "r": 0.14},
+    "name": {"x": 0.408, "y": 0.535, "maxWidth": 0.165, "fontSize": 0.036},
+    "field2": {"x": 0.355, "y": 0.668, "maxWidth": 0.22, "fontSize": 0.032},
+    "pronouns": {"x": 0.355, "y": 0.598, "fontSize": 0.018},
 }
 
 PRONOUNS = [
@@ -24,12 +24,12 @@ HUE_PRESETS = [
 ]
 
 CORE_IDENTITIES = [
-    {"id": "pride", "label": "Pride", "category": "Core", "fieldType": "member"},
-    {"id": "ally", "label": "Ally", "category": "Core", "fieldType": "member"},
-    {"id": "trans-gender-diverse", "label": "Trans & Gender Diverse", "category": "Core", "fieldType": "member"},
-    {"id": "intersex", "label": "Intersex", "category": "Core", "fieldType": "member"},
-    {"id": "ace-aro", "label": "Ace & Aro", "category": "Core", "fieldType": "member"},
-    {"id": "lgbtqia-plus", "label": "LGBTQIA+", "category": "Core", "fieldType": "member"},
+    {"id": "pride", "label": "Pride", "category": "Core", "fieldType": "community"},
+    {"id": "ally", "label": "Ally", "category": "Core", "fieldType": "community"},
+    {"id": "trans-gender-diverse", "label": "Trans & Gender Diverse", "category": "Core", "fieldType": "community"},
+    {"id": "intersex", "label": "Intersex", "category": "Core", "fieldType": "community"},
+    {"id": "ace-aro", "label": "Ace & Aro", "category": "Core", "fieldType": "community"},
+    {"id": "lgbtqia-plus", "label": "LGBTQIA+", "category": "Core", "fieldType": "community"},
     {"id": "lesbian", "label": "Lesbian", "category": "Core", "fieldType": "community"},
     {"id": "gay", "label": "Gay", "category": "Core", "fieldType": "community"},
     {"id": "bisexual", "label": "Bisexual / Bi", "category": "Core", "fieldType": "community"},

@@ -59,13 +59,17 @@ def apply_hue_saturation(image: Image.Image, hue: float = 0, saturation: float =
     if hue == 0 and saturation == 100:
         return image.copy()
 
-    rgb = image.convert("RGB")
+    rgba = image.convert("RGBA")
+    alpha = rgba.split()[3]
+    rgb = rgba.convert("RGB")
     hsv = np.array(rgb.convert("HSV"), dtype=np.float32)
     if hue:
         hsv[:, :, 0] = (hsv[:, :, 0] + (hue / 360.0) * 255.0) % 255.0
     if saturation != 100:
         hsv[:, :, 1] = np.clip(hsv[:, :, 1] * (saturation / 100.0), 0, 255)
-    return Image.fromarray(hsv.astype(np.uint8), mode="HSV").convert("RGB")
+    shifted = Image.fromarray(hsv.astype(np.uint8), mode="HSV").convert("RGB")
+    shifted.putalpha(alpha)
+    return shifted
 
 
 def _fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: float, font_size: float) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -139,7 +143,7 @@ def render_card_front(
 
     _draw_text(draw, name, layout["name"]["x"], layout["name"]["y"], layout["name"]["maxWidth"], layout["name"]["fontSize"])
 
-    second = member_number if identity.get("fieldType") == "member" else community_since
+    second = community_since or member_number
     _draw_text(draw, second, layout["field2"]["x"], layout["field2"]["y"], layout["field2"]["maxWidth"], layout["field2"]["fontSize"])
 
     if pronouns and pronouns != "name only":

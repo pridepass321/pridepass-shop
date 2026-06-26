@@ -10,7 +10,7 @@ const HUE_PRESETS = [
 let state = {
     identityId: 'pride',
     name: 'Alex Rivera',
-    memberNumber: 'LGB-2026-0847',
+    memberSince: '2026',
     communitySince: '2026',
     pronouns: 'they/them',
     photo: null,
@@ -180,9 +180,15 @@ function selectTheme(id) {
 
 function updateFieldVisibility() {
     const identity = IDENTITY_BY_ID[state.identityId];
-    const isMember = identity.fieldType === 'member';
-    $('field-member').classList.toggle('hidden', !isMember);
-    $('field-community').classList.toggle('hidden', isMember);
+    const label = $('member-since-label');
+    const hint = $('member-since-hint');
+    const isCore = identity.category === 'Core';
+    if (label) label.textContent = isCore ? 'Member Since' : 'Community Since';
+    if (hint) {
+        hint.textContent = isCore
+            ? 'Year or date beside Member Since on your card'
+            : 'Year or date beside Community Since on your card';
+    }
 }
 
 function updateMeaning() {
@@ -206,8 +212,9 @@ function getCardOptions() {
     return {
         identityId: state.identityId,
         name: state.name,
-        memberNumber: state.memberNumber,
-        communitySince: state.communitySince,
+        memberSince: state.memberSince,
+        communitySince: state.memberSince,
+        memberNumber: '',
         pronouns: state.pronouns,
         photo: state.photo,
         hue: state.hue,
@@ -390,8 +397,8 @@ async function proceedToCheckout() {
                 identityId: state.identityId,
                 identity_label: identity?.label || state.identityId,
                 name: state.name,
-                memberNumber: state.memberNumber,
-                communitySince: state.communitySince,
+                memberSince: state.memberSince,
+                communitySince: state.memberSince,
                 pronouns: state.pronouns,
                 hue: state.hue,
                 saturation: state.saturation
@@ -709,8 +716,11 @@ function hideInfoModal() {
 
 function bindEvents() {
     $('input-name').addEventListener('input', e => { state.name = e.target.value; updatePreview(); });
-    $('input-member').addEventListener('input', e => { state.memberNumber = e.target.value; updatePreview(); });
-    $('input-community').addEventListener('input', e => { state.communitySince = e.target.value; updatePreview(); });
+    $('input-member-since').addEventListener('input', e => {
+        state.memberSince = e.target.value;
+        state.communitySince = e.target.value;
+        updatePreview();
+    });
     $('input-pronouns').addEventListener('change', e => { state.pronouns = e.target.value; updatePreview(); });
     $('input-hue').addEventListener('input', e => onHueChange(e.target.value));
     $('input-saturation').addEventListener('input', e => onSaturationChange(e.target.value));
