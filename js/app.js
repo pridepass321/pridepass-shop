@@ -181,13 +181,26 @@ function focusLivePreview(fromQuickJump = false) {
     frame.classList.add('preview-pulse');
 }
 
+function setPreviewSideUi(side) {
+    state.previewSide = side;
+    $('btn-front')?.classList.toggle('nav-active', side === 'front');
+    $('btn-back')?.classList.toggle('nav-active', side === 'back');
+    $('btn-front')?.classList.toggle('dim-tab', side !== 'front');
+    $('btn-back')?.classList.toggle('dim-tab', side !== 'back');
+}
+
 function selectTheme(id, options = {}) {
     const { fromQuickJump = false } = options;
+    const identity = IDENTITY_BY_ID[id];
+    if (!identity) return;
+
     state.identityId = id;
     $('input-identity').value = id;
     updateFieldVisibility();
 
-    const identity = IDENTITY_BY_ID[id];
+    if (fromQuickJump || state.previewSide !== 'front') {
+        setPreviewSideUi('front');
+    }
     if (identity && galleryFilter !== 'all' && identity.category !== galleryFilter) {
         galleryFilter = identity.category;
         document.querySelectorAll('.gallery-filter').forEach(tab => {
@@ -203,8 +216,8 @@ function selectTheme(id, options = {}) {
 
     updatePreviewLabel();
     updateMeaning();
-    updatePreview();
     focusLivePreview(fromQuickJump);
+    updatePreview();
 }
 
 function updateFieldVisibility() {
@@ -487,16 +500,17 @@ async function updatePreview() {
     const token = ++previewToken;
     const canvas = $('card-preview-canvas');
     if (!canvas) return;
-    await renderPreview(canvas, state.previewSide, getCardOptions());
+
+    const side = state.previewSide;
+    const options = getCardOptions();
+    const rendered = await composePreviewCanvas(side, options);
     if (token !== previewToken) return;
+
+    commitPreviewCanvas(canvas, rendered, side, options);
 }
 
 function switchPreviewSide(side) {
-    state.previewSide = side;
-    $('btn-front').classList.toggle('nav-active', side === 'front');
-    $('btn-back').classList.toggle('nav-active', side === 'back');
-    $('btn-front').classList.toggle('dim-tab', side !== 'front');
-    $('btn-back').classList.toggle('dim-tab', side !== 'back');
+    setPreviewSideUi(side);
     syncPreviewHueFilter();
     updatePreview();
 }

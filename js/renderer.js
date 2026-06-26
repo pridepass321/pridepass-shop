@@ -301,24 +301,23 @@ function renderCardBack(width = CARD_LAYOUT.width, height = CARD_LAYOUT.height) 
     return canvas;
 }
 
-async function renderPreview(canvasEl, side, options) {
+async function composePreviewCanvas(side, options) {
     const { customBack = false, customBackImage = null } = options;
-    let rendered;
     if (side === 'back') {
         if (customBack && customBackImage) {
-            rendered = renderCardBackCustom(customBackImage);
-        } else {
-            rendered = renderCardBackLocked(CARD_LAYOUT.width, CARD_LAYOUT.height, customBack);
+            return renderCardBackCustom(customBackImage);
         }
-    } else {
-        rendered = await renderCardFront({
-            ...options,
-            previewScale: options.previewScale ?? PREVIEW_SCALE,
-            overlayText: false,
-            applyHue: false
-        });
+        return renderCardBackLocked(CARD_LAYOUT.width, CARD_LAYOUT.height, customBack);
     }
+    return renderCardFront({
+        ...options,
+        previewScale: options.previewScale ?? PREVIEW_SCALE,
+        overlayText: false,
+        applyHue: false
+    });
+}
 
+function commitPreviewCanvas(canvasEl, rendered, side, options) {
     const ctx = canvasEl.getContext('2d');
     canvasEl.width = rendered.width;
     canvasEl.height = rendered.height;
@@ -330,7 +329,11 @@ async function renderPreview(canvasEl, side, options) {
     } else {
         applyPreviewHueFilter(0, 100, false);
     }
+}
 
+async function renderPreview(canvasEl, side, options) {
+    const rendered = await composePreviewCanvas(side, options);
+    commitPreviewCanvas(canvasEl, rendered, side, options);
     return rendered;
 }
 
